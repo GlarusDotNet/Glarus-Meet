@@ -142,6 +142,7 @@ function cleanupParticipantsList(roomId) {
 app.get('/', (req, res) => {
     res.render('userDetails', { roomId: null });
 });
+
 // Render the user details form for new users
 app.get('/get-user-details', (req, res) => {
     res.render('userDetails', { roomId: req.session.requestedRoom });
@@ -149,29 +150,19 @@ app.get('/get-user-details', (req, res) => {
 
 // Handle form submission and redirect to the room
 app.post('/create-room', (req, res) => {
+    console.log("create room")
     const userEmail = req.body.userEmail;
     const name = req.body.name;
     const roomId = req.body.roomId || uuidV4();
-    // Store username in session
-   
+    // Store username in session   
     req.session.userEmail = userEmail;
     req.session.name = name;
     res.redirect(`/${roomId}`);
 });
 
-// app.get('/', (req, res) => {
-//     participants = {};
-//     res.redirect(`/${uuidV4()}`);
-// });
-
-// app.get('/:room', (req, res) => {
-//     res.render('room', { roomId: req.params.room })
-// });
-
 // Existing code for setting up the room route
 app.get('/:room', (req, res) => {
-    if (!req.session.userEmail) {
-        // Save the requested room in the session
+    if (!req.session.userEmail) {       
         req.session.requestedRoom = req.params.room;
         res.redirect('/get-user-details');
     } else {

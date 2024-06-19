@@ -1,9 +1,6 @@
 const socket = io();
 const videoGrid = document.getElementById('video-grid')
-
 const myVideo = document.createElement('video')
-
-
 myVideo.muted = true;
 const peers = {}
 let username;
@@ -20,7 +17,6 @@ const newList = {};
 let mic;
 let cameraDeviceId;
 
-
 const peer = new Peer(undefined, {
     path: '/peerjs',
     host: '/',
@@ -28,33 +24,14 @@ const peer = new Peer(undefined, {
 })
 
 
-
-const getDefaultCameraDeviceId = async () => {
-    try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        console.log('Available devices:', devices);
-
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        if (videoDevices.length > 0) {
-            // Return the deviceId of the first video input device
-            return videoDevices[0].deviceId;
-        } else {
-            throw new Error('No video input devices found');
-        }
-    } catch (err) {
-        console.error('Error enumerating devices:', err);
-        throw err;
-    }
-};
-
-
-const stremVideo = async (cameraDeviceId, audioDeviceId) => {
+const stremVideo = async (deviceId,audioDeviceId) => {
     // const constraints = { video: true, audio: { deviceId, exact: false } };  
     const constraints = {
-        video: { deviceId: { exact: cameraDeviceId } },
-        audio: { deviceId: audioDeviceId ? { exact: audioDeviceId } : undefined }
+        video: deviceId ? { deviceId: { exact: deviceId } } : true,
+        audio: audioDeviceId ? { deviceId: { exact: audioDeviceId } } : true
     };
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
     myVideoStream = stream;
     addVideoStream(myVideo, stream, USER_NAME, USER_EMAIL);
 
@@ -68,13 +45,9 @@ const stremVideo = async (cameraDeviceId, audioDeviceId) => {
 
     socket.on('user-connected', async (data) => {
         isRelodePage = false;
-        // username = data.userName;
-        // const stream = await getUserMedia();
-        //  connectToNewUser(data.userId, stream, data.userName, data.userEmail);
-
         try {
-            const stream = await getUserMedia();
-            const call = peer.call(data.userId, stream);
+            const newstream = await getUserMedia();
+            const call = peer.call(data.userId, newstream);
             const video = document.createElement('video');
 
             call.on('stream', userVideoStream => {
@@ -109,52 +82,54 @@ const stremVideo = async (cameraDeviceId, audioDeviceId) => {
         const userVideoElement = Array.from(videoGrid.children).find(child =>
             child.tagName === 'VIDEO' && child.srcObject && child.srcObject.id === userId
         );
-        // if (userVideoElement.style.display == "block" || !videoEnabled) {
-        if (!videoEnabled) {
-            userVideoElement.style.display = "none"
-            let nameDisplay = Array.from(videoGrid.children).find(child =>
-                child.classList.contains(userId)
-            );
-            if (!nameDisplay) {
+        if (userVideoElement != undefined) {
+            // if (userVideoElement.style.display == "block" || !videoEnabled) {
+            if (!videoEnabled) {
+                userVideoElement.style.display = "none"
+                let nameDisplay = Array.from(videoGrid.children).find(child =>
+                    child.classList.contains(userId)
+                );
+                if (!nameDisplay) {
 
-                const nameGrid = document.createElement("div");
-                // nameGrid.setAttribute("id", "nameGrid");
-                nameGrid.classList.add('nameGrid');
-                nameGrid.classList.add(userId);
+                    const nameGrid = document.createElement("div");
+                    // nameGrid.setAttribute("id", "nameGrid");
+                    nameGrid.classList.add('nameGrid');
+                    nameGrid.classList.add(userId);
 
-                nameGrid.style.fontWeight = "bold"; // Apply styles directly to the element
-                nameGrid.style.padding = "3px"
-                nameGrid.style.backgroundColor = "white"
-                nameGrid.style.border = "3px solid black"
-                nameGrid.style.borderRadius = "10px"
+                    nameGrid.style.fontWeight = "bold"; // Apply styles directly to the element
+                    nameGrid.style.padding = "3px"
+                    nameGrid.style.backgroundColor = "white"
+                    nameGrid.style.border = "3px solid black"
+                    nameGrid.style.borderRadius = "10px"
 
-                nameDisplay = document.createElement('span');
-                nameDisplay.classList.add('user-name');
-                nameDisplay.innerText = USER_NAME;
-                nameDisplay.setAttribute('data-username', USER_NAME);
+                    nameDisplay = document.createElement('span');
+                    nameDisplay.classList.add('user-name');
+                    nameDisplay.innerText = USER_NAME;
+                    nameDisplay.setAttribute('data-username', USER_NAME);
 
-                firstLetter = document.createElement("h1");
-                firstLetter.classList.add('first_leter');
-                firstLetter.innerText = USER_NAME[0].toUpperCase();
-                firstLetter.setAttribute('firstLeter-username', USER_NAME[0].toUpperCase());
+                    firstLetter = document.createElement("h1");
+                    firstLetter.classList.add('first_leter');
+                    firstLetter.innerText = USER_NAME[0].toUpperCase();
+                    firstLetter.setAttribute('firstLeter-username', USER_NAME[0].toUpperCase());
 
-                nameGrid.append(firstLetter)
-                nameGrid.append(nameDisplay);
+                    nameGrid.append(firstLetter)
+                    nameGrid.append(nameDisplay);
 
-                videoGrid.append(nameGrid);
+                    videoGrid.append(nameGrid);
+                }
+
+            } else {
+                const nameDisplay = Array.from(videoGrid.children).find(child =>
+                    child.classList.contains(userId)
+                );
+
+                if (nameDisplay) {
+                    videoGrid.removeChild(nameDisplay);
+                }
+                userVideoElement.style.display = "block";
+                if (myVideoStream.id === userId)
+                    myVideoStream.getVideoTracks()[0].enabled = true;
             }
-
-        } else {
-            const nameDisplay = Array.from(videoGrid.children).find(child =>
-                child.classList.contains(userId)
-            );
-
-            if (nameDisplay) {
-                videoGrid.removeChild(nameDisplay);
-            }
-            userVideoElement.style.display = "block";
-            if (myVideoStream.id === userId)
-                myVideoStream.getVideoTracks()[0].enabled = true;
         }
 
     });
@@ -190,25 +165,31 @@ async function getMediaStream(constraints) {
 }
 
 async function getUserMedia() {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const videoDevices = devices.filter(device => device.kind === 'videoinput');
-  
-    if (videoDevices.length > 0) {
-        // Choose the first video device (you can modify this to choose a specific device)
-        const constraints = {
-            video: { deviceId: videoDevices[0].deviceId ? { exact: videoDevices[0].deviceId } : undefined }
-        };
+    try {
+        // Request access to media devices
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        
+        // Access the devices again after permissions are granted
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        const audioDevices = devices.filter(device => device.kind === 'audioinput');
 
-        return getMediaStream(constraints);
-    } else {
-        throw new Error('No video devices found');
+        if (videoDevices.length > 0 && audioDevices.length > 0) {
+            const constraints = {
+                video: { deviceId: videoDevices[0].deviceId ? { exact: videoDevices[0].deviceId } : undefined },
+                audio: { deviceId: audioDevices[0].deviceId ? { exact: audioDevices[0].deviceId } : undefined }
+            };
+            return getMediaStream(constraints);
+        } else {
+            throw new Error('No video devices found');
+        }
+    } catch (err) {
+        console.error('Error accessing media devices.', err);
+        throw err;
     }
 }
 
-
-
 const addVideoStream = (video, stream, userName, userEmail) => {
-    console.log('stream')
     Array.from(videoGrid.children).forEach(child => {
         if (child.tagName === 'VIDEO' && child.srcObject === stream) {
             videoGrid.removeChild(child);
@@ -236,6 +217,7 @@ const addVideoStream = (video, stream, userName, userEmail) => {
         }
     }
     userId = videoGrid.children[0].srcObject.id;
+    console.log("Source  id "+videoGrid.children[0].srcObject.id)
     totalParticipants = videoGrid.children.length
     let participent = document.getElementById("participants");
     participent.innerText = totalParticipants;
@@ -261,15 +243,6 @@ const scrollToBottom = () => {
     d.scrollTop(d.prop("scrollHeight"));
 }
 
-// function connectToNewUser(userId, stream, userName, userEmail) {
-//     console.log('working of new connect')
-//     const call = peer.call(userId, stream)
-//     const video = document.createElement('video')
-//     call.on('stream', userVideoStream => {
-//         addVideoStream(video, userVideoStream, userName, userEmail);
-//     })
-// }
-
 //mic turn mute/Unmute
 const muteUnmute = () => {
     const enabled = myVideoStream.getAudioTracks()[0].enabled;
@@ -281,6 +254,7 @@ const muteUnmute = () => {
         myVideoStream.getAudioTracks()[0].enabled = true;
     }
 }
+
 
 // Mute a participant
 function muteUnmuteParticipant(socketId, action, i) {
@@ -295,21 +269,6 @@ function muteUnmuteParticipant(socketId, action, i) {
 
 }
 
-
-//Camera turn on/off
-const playStop = () => {
-    let enabled = myVideoStream.getVideoTracks()[0].enabled;
-
-    if (enabled) {
-        myVideoStream.getVideoTracks()[0].enabled = false;
-        setPlayVideo();
-        socket.emit('camera-toggled', { USER_NAME, videoEnabled: false, userId, USER_EMAIL });
-    } else {
-        myVideoStream.getVideoTracks()[0].enabled = true;
-        setStopVideo();
-        socket.emit('camera-toggled', { USER_NAME, videoEnabled: true, userId, USER_EMAIL });
-    }
-};
 
 document.getElementById('audioSetup').addEventListener('click', function () {
     var dropdown = document.getElementById('dropdownContainer');
@@ -433,6 +392,20 @@ const changeCameraDevice = async (deviceId) => {
 
 };
 
+//Camera turn on/off
+const playStop = () => {
+    let enabled = myVideoStream.getVideoTracks()[0].enabled;
+
+    if (enabled) {
+        myVideoStream.getVideoTracks()[0].enabled = false;
+        setPlayVideo();
+        socket.emit('camera-toggled', { USER_NAME, videoEnabled: false, userId, USER_EMAIL });
+    } else {
+        myVideoStream.getVideoTracks()[0].enabled = true;
+        setStopVideo();
+        socket.emit('camera-toggled', { USER_NAME, videoEnabled: true, userId, USER_EMAIL });
+    }
+};
 
 
 const getCurrentAudioDeviceId = () => {
@@ -603,12 +576,39 @@ function toggleParticipantList() {
     }
 }
 
+const getDefaultCameraDeviceId = async () => {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        console.log('Available devices:', videoDevices);
+        if (videoDevices.length > 0) {
+            return videoDevices[0].deviceId;
+        } else {
+            throw new Error('No video input devices found');
+        }
+    } catch (err) {
+        console.error('Error enumerating devices:', err);
+        throw err;
+    }
+};
+
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const stream = await getUserMedia();
+        // Continue with your stream setup
+        stremVideo(stream);
+    } catch (err) {
+        console.error('Failed to initialize media devices.', err);
+    }
+});
+
 (async () => {
     try {
         cameraDeviceId = await getDefaultCameraDeviceId();
         console.log('Default camera device ID:', cameraDeviceId);
-      
+
         await stremVideo(cameraDeviceId, "default");
+        // await stremVideo("default");
         await getUserAudioAndCameraDevice();
     } catch (err) {
         console.error('Error in streaming video:', err);
